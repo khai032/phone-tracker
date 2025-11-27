@@ -1,81 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Phone Tracker Admin</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 </head>
 <body>
-<h1>Phone Tracker Admin</h1>
+  <h1>Phone Tracker Admin</h1>
 
-<div style="text-align:center; margin:10px;">
-  <button id="generateBind">Generate Bind Link</button>
-  <input type="text" id="bindLink" readonly style="width:70%; text-align:center; margin-left:10px;"/>
-</div>
+  <div class="controls">
+    <button id="generateBind">Generate Bind Link</button>
+    <input id="bindLink" type="text" readonly placeholder="Bind link will appear here" />
+  </div>
 
-<div id="map"></div>
+  <div id="map"></div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-import L from "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+    import L from "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js";
 
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyAz9MekmxZ3n32vzVkjXpQZdWCA-zzUH9o",
-  authDomain: "phone-tracker-82286.firebaseapp.com",
-  projectId: "phone-tracker-82286",
-  storageBucket: "phone-tracker-82286.appspot.com",
-  messagingSenderId: "343819739526",
-  appId: "1:343819739526:web:10acad845264bd81c18c07"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",
+      authDomain: "phone-tracker-fd98d.firebaseapp.com",
+      projectId: "phone-tracker-fd98d",
+      storageBucket: "phone-tracker-fd98d.firebasestorage.app",
+      messagingSenderId: "906380468882",
+      appId: "1:906380468882:web:83315c6838b4bfc486fc4b",
+      measurementId: "G-CWNRYX9F4D"
+    };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-// Initialize map
-const map = L.map('map').setView([14.5995, 120.9842], 5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    // Map init
+    const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([14.5995, 120.9842], 5);
+    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+    tiles.addTo(map);
 
-let markers = {};
-const devicesRef = collection(db, "devices");
+    setTimeout(()=>map.invalidateSize(), 500);
 
-onSnapshot(devicesRef, snapshot => {
-  snapshot.docChanges().forEach(change => {
-    const data = change.doc.data();
-    const id = change.doc.id;
+    const markers = {};
 
-    if(change.type === "added" || change.type === "modified"){
-      if(markers[id]){
-        markers[id].setLatLng([data.latitude, data.longitude]);
-      } else {
-        const marker = L.circleMarker([data.latitude, data.longitude], {
-          radius: 10,
-          color: 'red',
-          fillColor: '#f03',
-          fillOpacity: 0.5
-        }).addTo(map).bindPopup(data.name);
-        markers[id] = marker;
-      }
+    function createMarker(lat, lng, name) {
+      const m = L.circleMarker([lat, lng], {
+        radius: 10,
+        color: '#ff4081',
+        fillColor: '#ff79a9',
+        fillOpacity: 0.9,
+        weight: 1
+      }).addTo(map);
+      m.bindPopup(name || 'Unknown Device');
+      m._path && m._path.classList.add('pulse-marker');
+      return m;
     }
-  });
 
-  const group = Object.values(markers).map(m => m.getLatLng());
-  if(group.length) map.fitBounds(group, {padding:[50,50]});
-});
+    function moveMarkerSmooth(marker, lat, lng) {
+      if (!marker || !marker._latlng) return;
+      const frames = 20;
+      const startLat = marker._latlng.lat;
+      const startLng = marker._latlng.lng;
+      let i = 0;
+      const dLat = (lat - startLat) / frames;
+      const dLng = (lng - startLng) / frames;
+      function step() {
+        if (i < frames) {
+          marker.setLatLng([startLat + dLat * i, startLng + dLng * i]);
+          i++;
+          requestAnimationFrame(step);
+        } else {
+          marker.setLatLng([lat, lng]);
+        }
+      }
+      step();
+    }
 
-// Bind link generator
-document.getElementById("generateBind").addEventListener("click", () => {
-  const link = window.location.origin + "/bind.html";
-  const input = document.getElementById("bindLink");
-  input.value = link;
-  input.select();
-  document.execCommand("copy");
-  alert("Bind link copied: " + link);
-});
-</script>
+    const devicesRef = collection(db, "devices");
+    onSnapshot(devicesRef, snapshot => {
+      snapshot.docChanges().forEach(change => {
+        const id = change.doc.id;
+        const data = change.doc.data();
+        if (!data || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return;
+
+        if (change.type === 'added') {
+          markers[id] = createMarker(data.latitude, data.longitude, data.name || "Device");
+        } else if (change.type === 'modified') {
+          if (markers[id]) moveMarkerSmooth(markers[id], data.latitude, data.longitude);
+          else markers[id] = createMarker(data.latitude, data.longitude, data.name || "Device");
+        } else if (change.type === 'removed') {
+          if (markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
+        }
+      });
+
+      const allLatLngs = Object.values(markers).map(m => m.getLatLng()).filter(Boolean);
+      if (allLatLngs.length) {
+        const group = L.featureGroup(Object.values(markers));
+        try { map.fitBounds(group.getBounds().pad(0.5)); } catch(e) {}
+      }
+    });
+
+    document.getElementById('generateBind').addEventListener('click', () => {
+      let url = window.location.href;
+      if (url.endsWith('index.html')) url = url.replace(/index\.html$/, 'bind.html');
+      else if (url.endsWith('/')) url = url + 'bind.html';
+      else url = url + '/bind.html';
+      const input = document.getElementById('bindLink');
+      input.value = url;
+      input.select();
+      try { document.execCommand('copy'); } catch(e) {}
+      alert('Bind link copied: ' + url);
+    });
+  </script>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>

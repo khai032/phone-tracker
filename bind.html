@@ -4,47 +4,50 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bind Device</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h2>Device Registration</h2>
-<p>Allow location to register your device automatically. This page will close after registration.</p>
+  <div class="bind-box">
+    <h2>Bind Device</h2>
+    <p id="status">Allow location access...</p>
+  </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyAz9MekmxZ3n32vzVkjXpQZdWCA-zzUH9o",
-  authDomain: "phone-tracker-82286.firebaseapp.com",
-  projectId: "phone-tracker-82286",
-  storageBucket: "phone-tracker-82286.appspot.com",
-  messagingSenderId: "343819739526",
-  appId: "1:343819739526:web:10acad845264bd81c18c07"
+  apiKey: "AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",
+  authDomain: "phone-tracker-fd98d.firebaseapp.com",
+  projectId: "phone-tracker-fd98d",
+  storageBucket: "phone-tracker-fd98d.firebasestorage.app",
+  messagingSenderId: "906380468882",
+  appId: "1:906380468882:web:83315c6838b4bfc486fc4b",
+  measurementId: "G-CWNRYX9F4D"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Automatically register device
-navigator.geolocation.getCurrentPosition(async pos => {
-  const latitude = pos.coords.latitude;
-  const longitude = pos.coords.longitude;
-  const deviceName = navigator.userAgent || "Unknown Device";
+navigator.geolocation.getCurrentPosition(async (pos) => {
+  const name = navigator.userAgent.split(' ').slice(0,3).join('-'); // auto device name
+  const lat = pos.coords.latitude;
+  const lon = pos.coords.longitude;
 
-  try {
-    await addDoc(collection(db, "devices"), {
-      name: deviceName,
-      latitude,
-      longitude,
-      timestamp: Date.now()
+  document.getElementById('status').textContent = "Location allowed!";
+
+  setInterval(async () => {
+    await setDoc(doc(db, "devices", name), {
+      name: name,
+      latitude: lat,
+      longitude: lon,
+      updated: Date.now()
     });
-    console.log("Device registered!");
-    setTimeout(()=>window.close(), 1000); // Close after 1 second
-  } catch(e){
-    console.error("Error adding device:", e);
-  }
-}, err => console.error("Geolocation error:", err));
+  }, 3000);
+
+}, () => {
+  document.getElementById('status').textContent = "Location access blocked!";
+});
 </script>
 </body>
 </html>
