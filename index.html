@@ -17,7 +17,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import { getDatabase, ref, onChildAdded, onChildChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-// Your Firebase config
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyAz9MekmxZ3n32vzVkjXpQZdWCA-zzUH9o",
   authDomain: "phone-tracker-82286.firebaseapp.com",
@@ -88,10 +88,19 @@ const devicesRef = ref(db,"devices");
 onChildAdded(devicesRef, snap=>addOrUpdateMarker(snap.key, snap.val()));
 onChildChanged(devicesRef, snap=>addOrUpdateMarker(snap.key, snap.val()));
 
-// Generate bind link
+// Generate bind link dynamically for GitHub Pages
 document.getElementById("generateLink").addEventListener("click", ()=>{
-  const bindLink = window.location.origin + "/bind.html";
-  document.getElementById("generatedLinkBox").innerHTML = `Bind Link: <a href="${bindLink}" target="_blank">${bindLink}</a>`;
+  // Automatically replace index.html with bind.html
+  let currentUrl = window.location.href;
+  if(currentUrl.endsWith("index.html")){
+    currentUrl = currentUrl.replace("index.html","bind.html");
+  } else if(!currentUrl.endsWith("/")){
+    currentUrl = currentUrl + "/bind.html";
+  } else {
+    currentUrl = currentUrl + "bind.html";
+  }
+  document.getElementById("generatedLinkBox").innerHTML = 
+    `Bind Link: <a href="${currentUrl}" target="_blank">${currentUrl}</a>`;
 });
 </script>
 
