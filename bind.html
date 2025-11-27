@@ -1,127 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Bind — Share Location</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bind Device</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Share Your Location</h1>
-    <p id="status">Tap <strong>Start tracking</strong> to share location (stays active while this page is open).</p>
+<div class="container">
+<h1>Bind Device</h1>
+<p>Allow location to appear on admin map.</p>
+<button id="allowLocation">Allow Location</button>
+</div>
 
-    <div class="btn-row">
-      <button id="startBtn">Start tracking</button>
-      <button id="stopBtn" disabled>Stop & Close</button>
-    </div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, push, ref } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-    <p class="small">If you want one-time share, start tracking, wait one update, then press Stop & Close.</p>
-    <pre id="debug" style="display:none"></pre>
-  </div>
+const firebaseConfig = {
+  apiKey: "AIzaSyAz9MekmxZ3n32vzVkjXpQZdWCA-zzUH9o",
+  authDomain: "phone-tracker-82286.firebaseapp.com",
+  databaseURL: "https://phone-tracker-82286-default-rtdb.firebaseio.com",
+  projectId: "phone-tracker-82286",
+  storageBucket: "phone-tracker-82286.appspot.com",
+  messagingSenderId: "343819739526",
+  appId: "1:343819739526:web:10acad845264bd81c18c07"
+};
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    // --- FIREBASE CONFIG (same as admin) ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyAz9MekmxZ3n32vzVkjXpQZdWCA-zzUH9o",
-      authDomain: "phone-tracker-82286.firebaseapp.com",
-      databaseURL: "https://phone-tracker-82286-default-rtdb.firebaseio.com/",
-      projectId: "phone-tracker-82286",
-      storageBucket: "phone-tracker-82286.appspot.com",
-      messagingSenderId: "343819739526",
-      appId: "1:343819739526:web:10acad845264bd81c18c07"
-    };
+document.getElementById("allowLocation").addEventListener("click", ()=>{
+  if(!navigator.geolocation){
+    alert("Geolocation not supported.");
+    return;
+  }
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      const latitude = pos.coords.latitude;
+      const longitude = pos.coords.longitude;
+      const deviceName = navigator.userAgent || "Unknown Device";
 
-    // stable device id stored locally so we update same DB node
-    let deviceId = localStorage.getItem('phoneTracker_deviceId');
-    if(!deviceId){
-      deviceId = 'dev-' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-      localStorage.setItem('phoneTracker_deviceId', deviceId);
-    }
-
-    const deviceRef = ref(db, 'devices/' + deviceId);
-
-    // UI
-    const statusEl = document.getElementById('status');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const debugEl = document.getElementById('debug');
-
-    let watchId = null;
-
-    function logDebug(msg){
-      console.debug(msg);
-      debugEl.style.display = 'block';
-      debugEl.innerText = new Date().toISOString() + '  ' + msg + '\n' + debugEl.innerText;
-    }
-
-    function sendPosition(lat, lng){
-      const payload = {
-        name: navigator.userAgent || 'Unknown Device',
-        latitude: lat,
-        longitude: lng,
-        timestamp: Date.now()
-      };
-      // set (not push) so this deviceId is unique node and updates overwrite
-      set(deviceRef, payload).then(()=> {
-        logDebug(`sent ${lat},${lng}`);
-      }).catch(err => {
-        logDebug('send error: ' + err);
-        alert('Failed to send location: ' + err);
-      });
-    }
-
-    function startTracking(){
-      if(!navigator.geolocation){
-        alert('Geolocation not supported on this device.');
-        return;
-      }
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-      statusEl.innerHTML = 'Tracking... please keep this page open.';
-
-      // Use watchPosition for continuous updates
-      watchId = navigator.geolocation.watchPosition(pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        sendPosition(lat, lng);
-      }, err => {
-        console.warn('geolocation error', err);
-        statusEl.innerText = 'Location error: ' + err.message;
-        logDebug('geo error ' + err.code + ' ' + err.message);
-      }, {
-        enableHighAccuracy: true,
-        maximumAge: 1000,
-        timeout: 10000
-      });
-    }
-
-    function stopTrackingAndClose(){
-      if(watchId !== null){
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-      stopBtn.disabled = true;
-      startBtn.disabled = false;
-      statusEl.innerText = 'Stopped. Closing...';
-      // optional: remove device entry when stopping (uncomment if desired)
-      // remove(deviceRef);
-      setTimeout(()=> window.close(), 400);
-    }
-
-    startBtn.addEventListener('click', startTracking);
-    stopBtn.addEventListener('click', stopTrackingAndClose);
-
-    // quick helper: if user reopened and tracking still active in another tab, provide ability to send single update:
-    // (not necessary but handy)
-    // send one immediate position on load if desired:
-    // navigator.geolocation.getCurrentPosition(p=>sendPosition(p.coords.latitude,p.coords.longitude));
-  </script>
+      push(ref(db,"devices"),{
+        name:deviceName,
+        latitude,
+        longitude,
+        timestamp:Date.now()
+      }).then(()=>alert("Location sent! You can close this page."))
+      .catch(err=>alert("Failed: "+err));
+    },
+    err=>alert("Location denied or unavailable. Error code: "+err.code),
+    { enableHighAccuracy:true, timeout:10000 }
+  );
+});
+</script>
 </body>
 </html>
