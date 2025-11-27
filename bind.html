@@ -25,29 +25,39 @@ const firebaseConfig = {
   appId: "1:906380468882:web:83315c6838b4bfc486fc4b",
   measurementId: "G-CWNRYX9F4D"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-navigator.geolocation.getCurrentPosition(async (pos) => {
-  const name = navigator.userAgent.split(' ').slice(0,3).join('-'); // auto device name
+// --- UNIQUE DEVICE ID ---
+const deviceId = 'device-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+
+function sendLocation(pos) {
   const lat = pos.coords.latitude;
   const lon = pos.coords.longitude;
 
-  document.getElementById('status').textContent = "Location allowed!";
+  setDoc(doc(db, "devices", deviceId), {
+    name: deviceId,
+    latitude: lat,
+    longitude: lon,
+    updated: Date.now()
+  });
+}
 
-  setInterval(async () => {
-    await setDoc(doc(db, "devices", name), {
-      name: name,
-      latitude: lat,
-      longitude: lon,
-      updated: Date.now()
-    });
-  }, 3000);
-
-}, () => {
-  document.getElementById('status').textContent = "Location access blocked!";
-});
+// --- REAL-TIME LOCATION ---
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(
+    (pos) => {
+      document.getElementById('status').textContent = "Location allowed!";
+      sendLocation(pos);
+    },
+    () => {
+      document.getElementById('status').textContent = "Location access blocked!";
+    },
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 5000 }
+  );
+} else {
+  document.getElementById('status').textContent = "Geolocation not supported!";
+}
 </script>
 </body>
 </html>

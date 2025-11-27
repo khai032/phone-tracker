@@ -31,28 +31,25 @@
       appId: "1:906380468882:web:83315c6838b4bfc486fc4b",
       measurementId: "G-CWNRYX9F4D"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Map init
+    // --- MAP ---
     const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([14.5995, 120.9842], 5);
-    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
-    tiles.addTo(map);
-
-    setTimeout(()=>map.invalidateSize(), 500);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    window.addEventListener('load', () => map.invalidateSize());
 
     const markers = {};
 
     function createMarker(lat, lng, name) {
       const m = L.circleMarker([lat, lng], {
-        radius: 10,
+        radius: 8,
         color: '#ff4081',
         fillColor: '#ff79a9',
         fillOpacity: 0.9,
         weight: 1
       }).addTo(map);
-      m.bindPopup(name || 'Unknown Device');
+      m.bindPopup(name);
       m._path && m._path.classList.add('pulse-marker');
       return m;
     }
@@ -84,12 +81,9 @@
         const data = change.doc.data();
         if (!data || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return;
 
-        if (change.type === 'added') {
-          markers[id] = createMarker(data.latitude, data.longitude, data.name || "Device");
-        } else if (change.type === 'modified') {
-          if (markers[id]) moveMarkerSmooth(markers[id], data.latitude, data.longitude);
-          else markers[id] = createMarker(data.latitude, data.longitude, data.name || "Device");
-        } else if (change.type === 'removed') {
+        if (change.type === 'added') markers[id] = createMarker(data.latitude, data.longitude, data.name);
+        else if (change.type === 'modified') moveMarkerSmooth(markers[id], data.latitude, data.longitude);
+        else if (change.type === 'removed') {
           if (markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
         }
       });
@@ -101,19 +95,17 @@
       }
     });
 
+    // --- GENERATE BIND LINK ---
     document.getElementById('generateBind').addEventListener('click', () => {
       let url = window.location.href;
       if (url.endsWith('index.html')) url = url.replace(/index\.html$/, 'bind.html');
-      else if (url.endsWith('/')) url = url + 'bind.html';
-      else url = url + '/bind.html';
+      else if (url.endsWith('/')) url += 'bind.html';
+      else url += '/bind.html';
       const input = document.getElementById('bindLink');
       input.value = url;
       input.select();
-      try { document.execCommand('copy'); } catch(e) {}
-      alert('Bind link copied: ' + url);
+      navigator.clipboard.writeText(url).then(() => alert('Bind link copied: ' + url));
     });
   </script>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>
