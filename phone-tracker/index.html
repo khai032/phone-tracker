@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Phone Tracker — Admin Map</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+<body>
+  <h1>Phone Tracker — Admin</h1>
+  <div class="controls">
+    <button id="generateLink">Generate Bind Link</button>
+    <div id="generatedLinkBox"></div>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Firebase (modular imports used in an inline module) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    // --- FIREBASE CONFIG (keep as your project's) ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAz9MekmxZ3n32vzVkjXpQZdWCA-zzUH9o",
+      authDomain: "phone-tracker-82286.firebaseapp.com",
+      databaseURL: "https://phone-tracker-82286-default-rtdb.firebaseio.com/",
+      projectId: "phone-tracker-82286",
+      storageBucket: "phone-tracker-82286.appspot.com",
+      messagingSenderId: "343819739526",
+      appId: "1:343819739526:web:10acad845264bd81c18c07"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- Leaflet map initialization ---
+    const map = L.map('map', { zoomControl: true }).setView([0,0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Resize fix for some hosts
+    setTimeout(()=>{ map.invalidateSize(); }, 300);
+
+    // Markers store: deviceId -> marker
+    const markers = {};
+
+    // Create a marker with a popup
+    function createMarker(deviceId, lat, lng, name){
+      const marker = L.circleMarker([lat,lng], {
+        radius: 10,
+        color: '#00d1ff',
+        fillColor: '#00a8ff',
+        fillOpacity: 0.9,
+        weight: 2
+      }).addTo(map);
+      marker.bindPopup(`<strong>${escapeHtml(name || 'Unknown Device')}</strong><br><small id="t-${deviceId}">just now</small>`);
+      return marker;
+    }
+
+    // Smooth move function
+    function smoothMove(marker, lat, lng){
+      if(!marker._latlng){
+        marker.setLatLng([lat,lng]);
+        return;
+      }
+      const frames = 20;
+      const startLat = marker._latlng.lat;
+      const startLng = marker._latlng.lng;
+      const dLat = (lat - startLat) / frames;
+      const dLng = (lng - startLng) / frames;
+      let i = 0;
+      function step(){
+        if(i < frames){
+          marker.setLatLng([startLat + dLat * i, startLng + dLng * i]);
+          i++;
+          requestAnimationFrame(step);
+        } else {
+          marker.setLatLng([lat, lng]);
+        }
+      }
+      step();
+    }
+
+    // Escape HTML for safe popup strings
+    function escapeHtml(s){
+      return (s||'').toString()
+        .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+        .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+    }
+
+    // Update markers from the devices snapshot (onValue)
+    const devicesRef = ref(db, 'devices');
+    onValue(devicesRef, snapshot => {
+      const devices = snapshot.val() || {};
+      // Process each device key (deviceId) and its data
+      for(const id in devices){
+        const d = devices[id];
+        const lat = Number(d.latitude);
+        const lng = Number(d.longitude);
+        const name = d.name || `Device ${id}`;
+        if(Number.isFinite(lat) && Number.isFinite(lng)){
+          if(markers[id]){
+            smoothMove(markers[id], lat, lng);
+            // update popup timestamp
+            const tSpan = document.getElementById(`t-${id}`);
+            if(tSpan) tSpan.innerText = timeAgo(d.timestamp || Date.now());
+          } else {
+            markers[id] = createMarker(id, lat, lng, name);
+          }
+        } else {
+          console.warn('Invalid coords for', id, d);
+        }
+      }
+
+      // Remove markers for deleted devices (if any)
+      for(const id in markers){
+        if(!devices[id]){
+          map.removeLayer(markers[id]);
+          delete markers[id];
+        }
+      }
+
+      // Fit bounds to show all markers (if exists)
+      const markerList = Object.values(markers);
+      if(markerList.length){
+        const group = L.featureGroup(markerList);
+        map.fitBounds(group.getBounds().pad(0.4), { animate: true, duration: 0.5 });
+      }
+    });
+
+    // Small helper to format "time ago"
+    function timeAgo(ts){
+      const s = Math.floor((Date.now() - (ts||0))/1000);
+      if(s < 5) return 'just now';
+      if(s < 60) return `${s}s ago`;
+      if(s < 3600) return `${Math.floor(s/60)}m ago`;
+      if(s < 86400) return `${Math.floor(s/3600)}h ago`;
+      return `${Math.floor(s/86400)}d ago`;
+    }
+
+    // Generate bind link (points to bind.html in same site)
+    document.getElementById('generateLink').addEventListener('click', () => {
+      const bindLink = window.location.origin + window.location.pathname.replace(/\/[^/]*$/,'') + '/bind.html';
+      // If the site root is used, removing duplicate slashes:
+      const normalized = bindLink.replace(/([^:]\/)\/+/g, '$1');
+      document.getElementById('generatedLinkBox').innerHTML = `<div class="linkbox">Bind Link: <a href="${normalized}" target="_blank">${normalized}</a></div><div class="hint">Open this link on your phone (in browser), tap &quot;Allow&quot; and keep it open for live tracking.</div>`;
+    });
+
+    // expose debug in console
+    window.__phoneTracker = { map, markers };
+  </script>
+</body>
+</html>
