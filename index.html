@@ -17,11 +17,15 @@
 
   <div id="map"></div>
 
+  <!-- Classic Leaflet -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",
       authDomain: "phone-tracker-fd98d.firebaseapp.com",
@@ -31,13 +35,12 @@
       appId: "1:906380468882:web:83315c6838b4bfc486fc4b",
       measurementId: "G-CWNRYX9F4D"
     };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
     // Map
-    const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([14.5995,120.9842],5);
+    const map = L.map('map', { zoomControl:true, attributionControl:false }).setView([14.5995,120.9842],5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-    setTimeout(()=>map.invalidateSize(),500);
 
     const markers = {};
 
@@ -50,7 +53,7 @@
         weight:1
       }).addTo(map);
       m.bindPopup(name || 'Unknown Device');
-      m._path && m._path.classList.add('pulse-marker');
+      if(m._path) m._path.classList.add('pulse-marker');
       return m;
     }
 
@@ -59,13 +62,13 @@
       const frames = 20;
       const startLat = marker._latlng.lat;
       const startLng = marker._latlng.lng;
-      let i = 0;
-      const dLat = (lat - startLat)/frames;
-      const dLng = (lng - startLng)/frames;
+      let i=0;
+      const dLat = (lat-startLat)/frames;
+      const dLng = (lng-startLng)/frames;
 
       function step(){
         if(i<frames){
-          marker.setLatLng([startLat+dLat*i, startLng+dLng*i]);
+          marker.setLatLng([startLat+dLat*i,startLng+dLng*i]);
           i++;
           requestAnimationFrame(step);
         }else marker.setLatLng([lat,lng]);
@@ -73,13 +76,12 @@
       step();
     }
 
-    // Firestore listener
-    const devicesRef = collection(db,"devices");
-    onSnapshot(devicesRef,snapshot=>{
+    // Listen for device updates
+    db.collection("devices").onSnapshot(snapshot=>{
       snapshot.docChanges().forEach(change=>{
         const id = change.doc.id;
         const data = change.doc.data();
-        if(!data || typeof data.latitude!=='number' || typeof data.longitude!=='number') return;
+        if(!data || typeof data.latitude!=='number'||typeof data.longitude!=='number') return;
 
         if(change.type==='added') markers[id]=createMarker(data.latitude,data.longitude,data.name);
         else if(change.type==='modified') moveMarkerSmooth(markers[id],data.latitude,data.longitude);
@@ -101,7 +103,6 @@
       if(url.endsWith('index.html')) url = url.replace(/index\.html$/,'bind.html');
       else if(url.endsWith('/')) url+='bind.html';
       else url+='/bind.html';
-
       const input = document.getElementById('bindLink');
       input.value = url;
       navigator.clipboard.writeText(url).then(()=>alert('Bind link copied!'));
