@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Phone Tracker Admin</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -12,15 +12,15 @@
 
   <div class="controls">
     <button id="generateBind">Generate Bind Link</button>
-    <input id="bindLink" type="text" readonly placeholder="Bind link will appear here" />
+    <input id="bindLink" type="text" readonly placeholder="Bind link will appear here">
   </div>
 
   <div id="map"></div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-    import L from "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet-src.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",
@@ -34,77 +34,77 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // --- MAP ---
-    const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([14.5995, 120.9842], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-    window.addEventListener('load', () => map.invalidateSize());
+    // Map
+    const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([14.5995,120.9842],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    setTimeout(()=>map.invalidateSize(),500);
 
     const markers = {};
 
-    function createMarker(lat, lng, name) {
-      const m = L.circleMarker([lat, lng], {
-        radius: 8,
-        color: '#ff4081',
-        fillColor: '#ff79a9',
-        fillOpacity: 0.9,
-        weight: 1
+    function createMarker(lat,lng,name){
+      const m = L.circleMarker([lat,lng],{
+        radius:10,
+        color:'#ff4081',
+        fillColor:'#ff79a9',
+        fillOpacity:0.9,
+        weight:1
       }).addTo(map);
-      m.bindPopup(name);
+      m.bindPopup(name || 'Unknown Device');
       m._path && m._path.classList.add('pulse-marker');
       return m;
     }
 
-    function moveMarkerSmooth(marker, lat, lng) {
-      if (!marker || !marker._latlng) return;
+    function moveMarkerSmooth(marker,lat,lng){
+      if(!marker || !marker._latlng) return;
       const frames = 20;
       const startLat = marker._latlng.lat;
       const startLng = marker._latlng.lng;
       let i = 0;
-      const dLat = (lat - startLat) / frames;
-      const dLng = (lng - startLng) / frames;
-      function step() {
-        if (i < frames) {
-          marker.setLatLng([startLat + dLat * i, startLng + dLng * i]);
+      const dLat = (lat - startLat)/frames;
+      const dLng = (lng - startLng)/frames;
+
+      function step(){
+        if(i<frames){
+          marker.setLatLng([startLat+dLat*i, startLng+dLng*i]);
           i++;
           requestAnimationFrame(step);
-        } else {
-          marker.setLatLng([lat, lng]);
-        }
+        }else marker.setLatLng([lat,lng]);
       }
       step();
     }
 
-    const devicesRef = collection(db, "devices");
-    onSnapshot(devicesRef, snapshot => {
-      snapshot.docChanges().forEach(change => {
+    // Firestore listener
+    const devicesRef = collection(db,"devices");
+    onSnapshot(devicesRef,snapshot=>{
+      snapshot.docChanges().forEach(change=>{
         const id = change.doc.id;
         const data = change.doc.data();
-        if (!data || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return;
+        if(!data || typeof data.latitude!=='number' || typeof data.longitude!=='number') return;
 
-        if (change.type === 'added') markers[id] = createMarker(data.latitude, data.longitude, data.name);
-        else if (change.type === 'modified') moveMarkerSmooth(markers[id], data.latitude, data.longitude);
-        else if (change.type === 'removed') {
-          if (markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
+        if(change.type==='added') markers[id]=createMarker(data.latitude,data.longitude,data.name);
+        else if(change.type==='modified') moveMarkerSmooth(markers[id],data.latitude,data.longitude);
+        else if(change.type==='removed'){
+          if(markers[id]){ map.removeLayer(markers[id]); delete markers[id]; }
         }
       });
 
-      const allLatLngs = Object.values(markers).map(m => m.getLatLng()).filter(Boolean);
-      if (allLatLngs.length) {
+      const allLatLngs = Object.values(markers).map(m=>m.getLatLng()).filter(Boolean);
+      if(allLatLngs.length){
         const group = L.featureGroup(Object.values(markers));
-        try { map.fitBounds(group.getBounds().pad(0.5)); } catch(e) {}
+        try { map.fitBounds(group.getBounds().pad(0.5)); } catch(e){}
       }
     });
 
-    // --- GENERATE BIND LINK ---
-    document.getElementById('generateBind').addEventListener('click', () => {
+    // Generate bind link
+    document.getElementById('generateBind').addEventListener('click',()=>{
       let url = window.location.href;
-      if (url.endsWith('index.html')) url = url.replace(/index\.html$/, 'bind.html');
-      else if (url.endsWith('/')) url += 'bind.html';
-      else url += '/bind.html';
+      if(url.endsWith('index.html')) url = url.replace(/index\.html$/,'bind.html');
+      else if(url.endsWith('/')) url+='bind.html';
+      else url+='/bind.html';
+
       const input = document.getElementById('bindLink');
       input.value = url;
-      input.select();
-      navigator.clipboard.writeText(url).then(() => alert('Bind link copied: ' + url));
+      navigator.clipboard.writeText(url).then(()=>alert('Bind link copied!'));
     });
   </script>
 </body>
