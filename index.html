@@ -6,41 +6,34 @@
 <title>Phone Tracker Admin</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<style>
-/* Extra advanced pulse fix */
-.pulse-marker {
-  pointer-events: none;
-  transform-origin: center center;
-  animation: pulse 1.5s infinite ease-in-out;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.5); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.6; }
-}
-
-.leaflet-marker-hover {
-  transform: scale(1.2) !important;
-  transition: transform 0.2s;
-}
-</style>
 </head>
 <body>
+
 <h1>Phone Tracker Admin</h1>
 
-<div class="controls">
-  <button id="generateBind">Generate Bind Link</button>
-  <input id="bindLink" type="text" readonly placeholder="Bind link will appear here">
+<div class="container">
+  <!-- Left-side devices list -->
+  <div class="sidebar">
+    <h2>Devices</h2>
+    <ul id="deviceList"></ul>
+  </div>
+
+  <!-- Right-side map and controls -->
+  <div class="main">
+    <div class="controls">
+      <button id="generateBind">Generate Bind Link</button>
+      <input id="bindLink" type="text" readonly placeholder="Bind link will appear here">
+    </div>
+    <div id="map"></div>
+  </div>
 </div>
 
-<div id="map"></div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-<script>
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",
   authDomain: "phone-tracker-fd98d.firebaseapp.com",
@@ -50,90 +43,109 @@ const firebaseConfig = {
   appId: "1:906380468882:web:83315c6838b4bfc486fc4b",
   measurementId: "G-CWNRYX9F4D"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
 
-// Map
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Initialize map
 const map = L.map('map', { zoomControl:true, attributionControl:false }).setView([14.5995,120.9842],5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+setTimeout(()=>map.invalidateSize(),500);
 
 const markers = {};
+const deviceList = document.getElementById('deviceList');
 
+// Create circleMarker with pulse
 function createMarker(lat, lng, name, updated){
-  const m = L.circleMarker([lat, lng],{
-    radius:10,
-    color:'#ff4081',
-    fillColor:'#ff79a9',
-    fillOpacity:0.9,
-    weight:1
+  const m = L.circleMarker([lat, lng], {
+    radius: 10,
+    color: '#ff4081',
+    fillColor: '#ff79a9',
+    fillOpacity: 0.9,
+    weight: 2
   }).addTo(map);
-
+  
   m.bindPopup(`<b>${name}</b><br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
-  if(m._path) m._path.classList.add('pulse-marker');
+  m.options.name = name;
 
-  // Hover effect
-  m.on('mouseover', () => m._path.classList.add('leaflet-marker-hover'));
-  m.on('mouseout', () => m._path.classList.remove('leaflet-marker-hover'));
-
+  if(m._path) m._path.classList.add('pulse-marker'); // Add pulse animation
   return m;
 }
 
+// Smoothly move marker
 function moveMarkerSmooth(marker, lat, lng, updated){
   if(!marker || !marker._latlng) return;
   const frames = 20;
   const startLat = marker._latlng.lat;
   const startLng = marker._latlng.lng;
+  const dLat = (lat - startLat)/frames;
+  const dLng = (lng - startLng)/frames;
   let i=0;
-  const dLat = (lat-startLat)/frames;
-  const dLng = (lng-startLng)/frames;
 
   function step(){
     if(i<frames){
-      marker.setLatLng([startLat+dLat*i,startLng+dLng*i]);
+      marker.setLatLng([startLat + dLat*i, startLng + dLng*i]);
       i++;
       requestAnimationFrame(step);
     } else {
-      marker.setLatLng([lat,lng]);
-      marker.setPopupContent(`<b>${marker.options.name || 'Device'}</b><br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
+      marker.setLatLng([lat, lng]);
+      marker.setPopupContent(`<b>${marker.options.name}</b><br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
     }
   }
   step();
 }
 
-// Firestore listener
-db.collection("devices").onSnapshot(snapshot=>{
+// Update sidebar list
+function updateDeviceList(){
+  deviceList.innerHTML = '';
+  Object.keys(markers).forEach(id=>{
+    const li = document.createElement('li');
+    li.textContent = markers[id].options.name || id;
+    li.addEventListener('click', ()=>{
+      map.setView(markers[id].getLatLng(), 15, { animate:true });
+      markers[id].openPopup();
+    });
+    deviceList.appendChild(li);
+  });
+}
+
+// Listen to Firestore
+const devicesRef = collection(db,"devices");
+onSnapshot(devicesRef, snapshot=>{
   snapshot.docChanges().forEach(change=>{
     const id = change.doc.id;
     const data = change.doc.data();
-    if(!data || typeof data.latitude!=='number'||typeof data.longitude!=='number') return;
+    if(!data || typeof data.latitude!=='number' || typeof data.longitude!=='number') return;
 
     if(change.type==='added'){
-      const m = createMarker(data.latitude, data.longitude, data.name, data.updated);
-      m.options.name = data.name;
-      markers[id]=m;
+      markers[id] = createMarker(data.latitude,data.longitude,data.name,data.updated);
     } else if(change.type==='modified'){
-      moveMarkerSmooth(markers[id], data.latitude, data.longitude, data.updated);
+      if(markers[id]) moveMarkerSmooth(markers[id], data.latitude, data.longitude, data.updated);
+      else markers[id] = createMarker(data.latitude, data.longitude, data.name,data.updated);
     } else if(change.type==='removed'){
-      if(markers[id]){ map.removeLayer(markers[id]); delete markers[id]; }
+      if(markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
     }
   });
+  updateDeviceList();
 
   const allLatLngs = Object.values(markers).map(m=>m.getLatLng()).filter(Boolean);
   if(allLatLngs.length){
     const group = L.featureGroup(Object.values(markers));
-    try { map.fitBounds(group.getBounds().pad(0.5)); } catch(e){}
+    try{ map.fitBounds(group.getBounds().pad(0.5)); }catch(e){}
   }
 });
 
 // Generate bind link
-document.getElementById('generateBind').addEventListener('click',()=>{
+document.getElementById('generateBind').addEventListener('click', ()=>{
   let url = window.location.href;
   if(url.endsWith('index.html')) url = url.replace(/index\.html$/,'bind.html');
-  else if(url.endsWith('/')) url+='bind.html';
-  else url+='/bind.html';
+  else if(url.endsWith('/')) url += 'bind.html';
+  else url += '/bind.html';
   const input = document.getElementById('bindLink');
   input.value = url;
-  navigator.clipboard.writeText(url).then(()=>alert('Bind link copied!'));
+  input.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  alert('Bind link copied: ' + url);
 });
 </script>
 </body>

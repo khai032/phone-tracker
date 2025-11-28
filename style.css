@@ -1,96 +1,128 @@
 :root {
-  --bg: #0f1114;
-  --panel: #16181b;
-  --accent: #ff4081;
-  --accent-2: #ff79a9;
-  --muted: #bdbdbd;
-  --glow: rgba(255,64,129,0.3);
+  --bg:#0f1114;
+  --panel:#16181b;
+  --accent:#ff4081;
+  --accent-2:#ff79a9;
+  --muted:#bdbdbd;
 }
 
-* { box-sizing: border-box; margin:0; padding:0; }
-body {
-  font-family: 'Inter', Arial, sans-serif;
-  background: linear-gradient(135deg,#0b0c0e,#1a1c20);
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:Inter,Arial,Helvetica,sans-serif;
+  background:linear-gradient(180deg,#0b0c0e 0%,#151618 100%);
   color:#fff;
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing:antialiased;
 }
 
-h1 {
+h1{
   text-align:center;
-  color: var(--accent);
-  text-shadow: 0 0 12px var(--glow);
-  padding: 20px 0;
+  padding:18px 0;
+  color:var(--accent);
+  text-shadow:0 0 8px rgba(255,64,129,0.12);
+  margin:0;
 }
 
-.controls {
-  text-align:center;
-  margin: 20px 0;
+.container{
   display:flex;
-  flex-wrap:wrap;
-  justify-content:center;
-  gap:10px;
+  height:calc(100vh - 80px);
 }
 
-.controls input {
-  padding:10px 12px;
-  border-radius:10px;
+.sidebar{
+  width:200px;
+  background:var(--panel);
+  border-right:1px solid rgba(255,255,255,0.05);
+  overflow-y:auto;
+  padding:10px;
+}
+
+.sidebar h2{
+  text-align:center;
+  color:var(--accent);
+  margin-top:0;
+}
+
+.sidebar ul{
+  list-style:none;
+  padding:0;
+  margin:0;
+}
+
+.sidebar li{
+  padding:8px 12px;
+  margin-bottom:4px;
+  background:rgba(255,64,129,0.05);
+  border-radius:6px;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.sidebar li:hover{
+  background:rgba(255,64,129,0.2);
+}
+
+.main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+
+.controls{
+  text-align:center;
+  margin:10px 0;
+}
+
+.controls input{
+  padding:10px;
+  border-radius:6px;
   border:none;
   width:70%;
   max-width:720px;
-  background:rgba(20,20,20,0.9);
+  background:#101214;
   color:#fff;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
-  transition: 0.2s all;
-}
-.controls input:focus{
-  outline:none;
-  box-shadow: 0 0 12px var(--glow);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 
-.controls button {
-  background: var(--accent);
+.controls button{
+  background:var(--accent);
   border:none;
-  padding:10px 20px;
-  border-radius:10px;
+  padding:10px 16px;
+  border-radius:8px;
   color:#fff;
-  font-weight:600;
   cursor:pointer;
-  box-shadow: 0 6px 18px rgba(255,64,129,0.3);
-  transition: all 0.2s ease;
-}
-.controls button:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(255,64,129,0.5);
+  font-weight:600;
+  margin-right:10px;
+  box-shadow:0 6px 18px rgba(255,64,129,0.08);
+  transition: transform 0.2s ease;
 }
 
-#map {
-  width: 90%;
-  max-width:800px;
-  height:800px;
-  margin: 20px auto;
-  border-radius:20px;
+.controls button:hover{ transform: translateY(-2px); }
+
+#map{
+  flex:1;
+  margin:0 10px 10px 10px;
+  border-radius:12px;
   overflow:hidden;
-  border: 1px solid rgba(255,255,255,0.05);
-  box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+  box-shadow:0 10px 30px rgba(0,0,0,0.6);
+  border:1px solid rgba(255,255,255,0.03);
 }
 
-.pulse-div {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #ff79a9;
-  border: 2px solid #ff4081;
-  animation: pulse 1.5s infinite ease-in-out;
-  box-shadow: 0 0 8px rgba(255,64,129,0.6);
+/* Pulse animation for circleMarkers */
+.pulse-marker{
+  filter: drop-shadow(0 4px 10px rgba(255,64,129,0.2));
+  animation: pulse 1.5s infinite;
+  transform-origin:center;
 }
 
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.5); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.6; }
+@keyframes pulse{
+  0%{ transform: scale(1); opacity:0.9; }
+  50%{ transform: scale(1.5); opacity:0.6; }
+  100%{ transform: scale(1); opacity:0.9; }
 }
 
-@media (max-width: 768px){
-  #map { width: 95%; height: 400px; }
-  .controls input{ width: 60%; }
+@media (max-width:768px){
+  .container{ flex-direction:column; }
+  .sidebar{ width:100%; height:150px; display:flex; overflow-x:auto; overflow-y:hidden;}
+  .sidebar ul{ display:flex; flex-direction:row;}
+  .sidebar li{ margin-right:6px;}
 }
