@@ -1,84 +1,96 @@
 :root {
-  --bg:#0f1114;
-  --panel:#16181b;
-  --accent:#ff4081;
-  --accent-2:#ff79a9;
-  --muted:#bdbdbd;
+  --bg: #0f1114;
+  --panel: #16181b;
+  --accent: #ff4081;
+  --accent-2: #ff79a9;
+  --muted: #bdbdbd;
+  --glow: rgba(255,64,129,0.3);
 }
 
-*{box-sizing:border-box;}
-body{
-  margin:0;
-  font-family:Inter,Arial,Helvetica,sans-serif;
-  background:linear-gradient(180deg,#0b0c0e 0%,#151618 100%);
+* { box-sizing: border-box; margin:0; padding:0; }
+body {
+  font-family: 'Inter', Arial, sans-serif;
+  background: linear-gradient(135deg,#0b0c0e,#1a1c20);
   color:#fff;
-  -webkit-font-smoothing:antialiased;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1{
+h1 {
   text-align:center;
-  padding:18px 0;
-  color:var(--accent);
-  text-shadow:0 0 8px rgba(255,64,129,0.12);
-  margin:0;
+  color: var(--accent);
+  text-shadow: 0 0 12px var(--glow);
+  padding: 20px 0;
 }
 
-.controls{
+.controls {
   text-align:center;
-  margin:14px 0;
+  margin: 20px 0;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
 }
 
-.controls input{
-  padding:10px;
-  border-radius:6px;
+.controls input {
+  padding:10px 12px;
+  border-radius:10px;
   border:none;
   width:70%;
   max-width:720px;
-  background:#101214;
+  background:rgba(20,20,20,0.9);
   color:#fff;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+  transition: 0.2s all;
+}
+.controls input:focus{
+  outline:none;
+  box-shadow: 0 0 12px var(--glow);
 }
 
-.controls button{
-  background:var(--accent);
+.controls button {
+  background: var(--accent);
   border:none;
-  padding:10px 16px;
-  border-radius:8px;
+  padding:10px 20px;
+  border-radius:10px;
   color:#fff;
-  cursor:pointer;
   font-weight:600;
-  margin-right:10px;
-  box-shadow:0 6px 18px rgba(255,64,129,0.08);
-  transition: transform 0.2s ease;
+  cursor:pointer;
+  box-shadow: 0 6px 18px rgba(255,64,129,0.3);
+  transition: all 0.2s ease;
+}
+.controls button:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(255,64,129,0.5);
 }
 
-.controls button:hover{ transform: translateY(-2px); }
-
-#map{
-  height:400px;
-  width:90%;
+#map {
+  width: 90%;
   max-width:800px;
-  margin:20px auto;
-  border-radius:12px;
+  height:800px;
+  margin: 20px auto;
+  border-radius:20px;
   overflow:hidden;
-  box-shadow:0 10px 30px rgba(0,0,0,0.6);
-  border:1px solid rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  box-shadow: 0 15px 40px rgba(0,0,0,0.6);
 }
 
-/* Pulse animation for circleMarkers */
-.pulse-marker{
-  filter: drop-shadow(0 4px 10px rgba(255,64,129,0.2));
-  animation: pulse 1.5s infinite;
-  transform-origin:center;
+.pulse-div {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff79a9;
+  border: 2px solid #ff4081;
+  animation: pulse 1.5s infinite ease-in-out;
+  box-shadow: 0 0 8px rgba(255,64,129,0.6);
 }
 
-@keyframes pulse{
-  0%{ transform: scale(1); opacity:0.9; }
-  50%{ transform: scale(1.5); opacity:0.6; }
-  100%{ transform: scale(1); opacity:0.9; }
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.5); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.6; }
 }
 
-@media (max-width:640px){
-  .controls input{ width:60%; }
-  #map{ height:calc(100vh - 220px); }
+@media (max-width: 768px){
+  #map { width: 95%; height: 400px; }
+  .controls input{ width: 60%; }
 }

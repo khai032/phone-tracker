@@ -7,17 +7,16 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <div class="bind-box">
   <h2>Bind Device</h2>
   <p id="status">Allow location access...</p>
   <p id="info"></p>
 </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",
   authDomain: "phone-tracker-fd98d.firebaseapp.com",
@@ -27,50 +26,61 @@ const firebaseConfig = {
   appId: "1:906380468882:web:83315c6838b4bfc486fc4b",
   measurementId: "G-CWNRYX9F4D"
 };
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Device info
+let deviceName = navigator.userAgent.split(' ').slice(0,3).join('-'); // default
+deviceName = prompt("Enter your device name:", deviceName) || deviceName;
 
-// Auto device name from user agent
-const deviceName = navigator.userAgent.split(' ').slice(0,3).join('-') || 'Device';
-
-// Track battery info if supported
 let batteryLevel = null;
 let chargingStatus = null;
 
+// Optional: Get battery info if supported
 if(navigator.getBattery){
-  navigator.getBattery().then(b=>{
+  navigator.getBattery().then(battery=>{
     function updateBattery(){
-      batteryLevel = Math.round(b.level*100);
-      chargingStatus = b.charging ? 'Charging' : 'Not charging';
+      batteryLevel = Math.round(battery.level * 100);
+      chargingStatus = battery.charging ? 'Charging' : 'Not charging';
       document.getElementById('info').textContent = `Battery: ${batteryLevel}% (${chargingStatus})`;
     }
     updateBattery();
-    b.addEventListener('levelchange', updateBattery);
-    b.addEventListener('chargingchange', updateBattery);
+    battery.addEventListener('levelchange', updateBattery);
+    battery.addEventListener('chargingchange', updateBattery);
   });
 }
 
-if(navigator.geolocation){
-  navigator.geolocation.watchPosition(async pos=>{
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
-    document.getElementById('status').textContent = "Location allowed!";
+// Unique device ID
+const deviceId = 'device-' + Date.now() + '-' + Math.floor(Math.random()*1000);
 
-    await setDoc(doc(db,"devices",deviceName),{
-      name: deviceName,
-      latitude: lat,
-      longitude: lon,
-      battery: batteryLevel,
-      charging: chargingStatus,
-      updated: Date.now()
-    });
-  }, err=>{
-    console.error(err);
-    document.getElementById('status').textContent = "Location access blocked!";
-  }, { enableHighAccuracy:true, maximumAge:2000, timeout:5000 });
-} else {
-  document.getElementById('status').textContent = "Geolocation not supported!";
+// Function to update Firestore
+async function updateLocation(pos){
+  const data = {
+    name: deviceName,
+    latitude: pos.coords.latitude,
+    longitude: pos.coords.longitude,
+    updated: Date.now(),
+    battery: batteryLevel,
+    charging: chargingStatus
+  };
+  await db.collection("devices").doc(deviceId).set(data);
+}
+
+// High accuracy location watch
+if(navigator.geolocation){
+  navigator.geolocation.watchPosition(
+    pos=>{
+      document.getElementById('status').textContent = "Location allowed!";
+      updateLocation(pos);
+    },
+    err=>{
+      document.getElementById('status').textContent = "Location access blocked!";
+      console.error(err);
+    },
+    { enableHighAccuracy:true, maximumAge:3000, timeout:5000 }
+  );
+}else{
+  document.getElementById('status').textContent="Geolocation not supported!";
 }
 </script>
 </body>
