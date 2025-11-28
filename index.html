@@ -19,48 +19,100 @@
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-<script>
-const cfg={apiKey:"AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",authDomain:"phone-tracker-fd98d.firebaseapp.com",projectId:"phone-tracker-fd98d",storageBucket:"phone-tracker-fd98d.firebasestorage.app",messagingSenderId:"906380468882",appId:"1:906380468882:web:83315c6838b4bfc486fc4b",measurementId:"G-CWNRYX9F4D"};
-firebase.initializeApp(cfg);
-const db=firebase.firestore(),map=L.map('map',{zoomControl:true,attributionControl:false}).setView([14.5995,120.9842],5),mks={};
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+const firebaseConfig = {
+  apiKey: "AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",
+  authDomain: "phone-tracker-fd98d.firebaseapp.com",
+  projectId: "phone-tracker-fd98d",
+  storageBucket: "phone-tracker-fd98d.firebasestorage.app",
+  messagingSenderId: "906380468882",
+  appId: "1:906380468882:web:83315c6838b4bfc486fc4b",
+  measurementId: "G-CWNRYX9F4D"
+};
 
-const batteryColor=l=>l>=70?'#4caf50':l>=30?'#ffeb3b':'#f44336';
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-function createMarker(lat,lng,name,b,u){
-  const icon=L.divIcon({className:'',html:`<div class="pulse-div" style="background:${batteryColor(b)};border:2px solid ${batteryColor(b)}"></div>`,iconSize:[20,20],iconAnchor:[10,10]});
-  const mk=L.marker([lat,lng],{icon}).addTo(map);
-  mk.bindPopup(`<b>${name}</b><br>Battery: ${b||'N/A'}%<br>Last updated: ${new Date(u).toLocaleTimeString()}`);
-  mk.options.name=name; return mk;
-}
+const map = L.map('map', { zoomControl:true, attributionControl:false }).setView([14.5995,120.9842],5);
+const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19 });
+tiles.addTo(map);
+setTimeout(()=>map.invalidateSize(),500);
 
-function moveMarkerSmooth(mk,lat,lng,u,b){
-  if(!mk||!mk.getLatLng) return;
-  const frames=20,sLat=mk.getLatLng().lat,sLng=mk.getLatLng().lng,dLat=(lat-sLat)/frames,dLng=(lng-sLng)/frames;
-  let i=0; function step(){if(i<frames){mk.setLatLng([sLat+dLat*i,sLng+dLng*i]);i++;requestAnimationFrame(step);}else{mk.setLatLng([lat,lng]);mk.setPopupContent(`<b>${mk.options.name}</b><br>Battery: ${b||'N/A'}%<br>Last updated: ${new Date(u).toLocaleTimeString()}`);}} step();
-}
+const markers = {};
 
-db.collection("devices").onSnapshot(s=>{
-  s.docChanges().forEach(c=>{
-    const id=c.doc.id,d=c.doc.data();
-    if(!d||typeof d.latitude!=='number'||typeof d.longitude!=='number') return;
-    if(c.type==='added') mks[id]=createMarker(d.latitude,d.longitude,d.name,d.battery,d.updated);
-    else if(c.type==='modified') moveMarkerSmooth(mks[id],d.latitude,d.longitude,d.updated,d.battery);
-    else if(c.type==='removed'){if(mks[id]){map.removeLayer(mks[id]);delete mks[id];}}
+function batteryColor(l){ return l>=70?'#4caf50':l>=30?'#ffeb3b':'#f44336'; }
+
+function createMarker(lat,lng,name,battery,updated){
+  const icon = L.divIcon({
+    className:'',
+    html:`<div class="pulse-div" style="background:${batteryColor(battery)};border:2px solid ${batteryColor(battery)}"></div>`,
+    iconSize:[20,20],
+    iconAnchor:[10,10]
   });
-  const ll=Object.values(mks).map(x=>x.getLatLng()).filter(Boolean);
-  if(ll.length){const g=L.featureGroup(Object.values(mks));try{map.fitBounds(g.getBounds().pad(0.5));}catch(e){}}
+  const m = L.marker([lat,lng], {icon}).addTo(map);
+  m.bindPopup(`<b>${name}</b><br>Battery: ${battery||'N/A'}%<br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
+  m.options.name = name;
+  return m;
+}
+
+function moveMarkerSmooth(marker,lat,lng,updated,battery){
+  if(!marker||!marker.getLatLng) return;
+  const frames = 20;
+  const startLat = marker.getLatLng().lat;
+  const startLng = marker.getLatLng().lng;
+  const dLat = (lat-startLat)/frames;
+  const dLng = (lng-startLng)/frames;
+  let i=0;
+  function step(){
+    if(i<frames){
+      marker.setLatLng([startLat+dLat*i, startLng+dLng*i]);
+      i++;
+      requestAnimationFrame(step);
+    }else{
+      marker.setLatLng([lat,lng]);
+      marker.setPopupContent(`<b>${marker.options.name}</b><br>Battery: ${battery||'N/A'}%<br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
+    }
+  }
+  step();
+}
+
+const devicesRef = collection(db,"devices");
+onSnapshot(devicesRef, snapshot=>{
+  snapshot.docChanges().forEach(change=>{
+    const id = change.doc.id;
+    const data = change.doc.data();
+    if(!data || typeof data.latitude!=='number' || typeof data.longitude!=='number') return;
+
+    if(change.type==='added'){
+      markers[id] = createMarker(data.latitude,data.longitude,data.name,data.battery,data.updated);
+    }else if(change.type==='modified'){
+      if(markers[id]) moveMarkerSmooth(markers[id],data.latitude,data.longitude,data.updated,data.battery);
+      else markers[id] = createMarker(data.latitude,data.longitude,data.name,data.battery,data.updated);
+    }else if(change.type==='removed'){
+      if(markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
+    }
+  });
+
+  const allLatLngs = Object.values(markers).map(m=>m.getLatLng()).filter(Boolean);
+  if(allLatLngs.length){
+    const group = L.featureGroup(Object.values(markers));
+    try{ map.fitBounds(group.getBounds().pad(0.5)); }catch(e){}
+  }
 });
 
 document.getElementById('generateBind').addEventListener('click',()=>{
-  let url=window.location.href;
-  if(url.endsWith('index.html')) url=url.replace(/index\.html$/,'bind.html');
-  else if(url.endsWith('/')) url+='bind.html'; else url+='/bind.html';
-  const input=document.getElementById('bindLink');input.value=url;
-  navigator.clipboard.writeText(url).then(()=>alert('Bind link copied!'));
+  let url = window.location.href;
+  if(url.endsWith('index.html')) url = url.replace(/index\.html$/,'bind.html');
+  else if(url.endsWith('/')) url += 'bind.html';
+  else url += '/bind.html';
+  const input = document.getElementById('bindLink');
+  input.value = url;
+  input.select();
+  try { document.execCommand('copy'); }catch(e){}
+  alert('Bind link copied: ' + url);
 });
 </script>
 </body>
