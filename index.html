@@ -12,13 +12,11 @@
 <h1>Phone Tracker Admin</h1>
 
 <div class="container">
-  <!-- Left-side devices list -->
   <div class="sidebar">
     <h2>Devices</h2>
     <ul id="deviceList"></ul>
   </div>
 
-  <!-- Right-side map and controls -->
   <div class="main">
     <div class="controls">
       <button id="generateBind">Generate Bind Link</button>
@@ -47,7 +45,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Initialize map
+// Map init
 const map = L.map('map', { zoomControl:true, attributionControl:false }).setView([14.5995,120.9842],5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
 setTimeout(()=>map.invalidateSize(),500);
@@ -55,32 +53,31 @@ setTimeout(()=>map.invalidateSize(),500);
 const markers = {};
 const deviceList = document.getElementById('deviceList');
 
-// Create circleMarker with pulse
+// Create a fixed circle with a pulse glow using DivIcon
 function createMarker(lat, lng, name, updated){
-  const m = L.circleMarker([lat, lng], {
-    radius: 10,
-    color: '#ff4081',
-    fillColor: '#ff79a9',
-    fillOpacity: 0.9,
-    weight: 2
-  }).addTo(map);
-  
-  m.bindPopup(`<b>${name}</b><br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
-  m.options.name = name;
+  const html = `<div class="pulse-marker"></div><div class="marker-center"></div>`;
+  const icon = L.divIcon({
+    html: html,
+    className: '',
+    iconSize: [20,20],
+    iconAnchor: [10,10]
+  });
 
-  if(m._path) m._path.classList.add('pulse-marker'); // Add pulse animation
-  return m;
+  const marker = L.marker([lat,lng], { icon: icon }).addTo(map);
+  marker.bindPopup(`<b>${name}</b><br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
+  marker.options.name = name;
+  return marker;
 }
 
 // Smoothly move marker
 function moveMarkerSmooth(marker, lat, lng, updated){
-  if(!marker || !marker._latlng) return;
+  if(!marker || !marker.getLatLng) return;
   const frames = 20;
-  const startLat = marker._latlng.lat;
-  const startLng = marker._latlng.lng;
+  const startLat = marker.getLatLng().lat;
+  const startLng = marker.getLatLng().lng;
   const dLat = (lat - startLat)/frames;
   const dLng = (lng - startLng)/frames;
-  let i=0;
+  let i = 0;
 
   function step(){
     if(i<frames){
@@ -88,14 +85,14 @@ function moveMarkerSmooth(marker, lat, lng, updated){
       i++;
       requestAnimationFrame(step);
     } else {
-      marker.setLatLng([lat, lng]);
+      marker.setLatLng([lat,lng]);
       marker.setPopupContent(`<b>${marker.options.name}</b><br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
     }
   }
   step();
 }
 
-// Update sidebar list
+// Update sidebar
 function updateDeviceList(){
   deviceList.innerHTML = '';
   Object.keys(markers).forEach(id=>{
@@ -109,7 +106,7 @@ function updateDeviceList(){
   });
 }
 
-// Listen to Firestore
+// Firestore snapshot
 const devicesRef = collection(db,"devices");
 onSnapshot(devicesRef, snapshot=>{
   snapshot.docChanges().forEach(change=>{
