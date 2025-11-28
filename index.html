@@ -23,6 +23,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBbihHNrD7_Gx6QdyunHBoYDi_41hcYyBQ",
   authDomain: "phone-tracker-fd98d.firebaseapp.com",
@@ -36,8 +37,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// Initialize map
 const map = L.map('map', { zoomControl:true, attributionControl:false }).setView([14.5995,120.9842],5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19 }).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
 setTimeout(()=>map.invalidateSize(),500);
 
 const markers = {};
@@ -47,49 +49,48 @@ function batteryColor(level){
   return level>=70?'#4caf50':level>=30?'#ffeb3b':'#f44336';
 }
 
-function createMarker(lat,lng,name,battery,charging,updated){
-  // Charging icon overlay if charging
-  const chargingIcon = charging==='Charging' ? '⚡' : '';
-  const iconHTML = `<div class="pulse-div" style="background:${batteryColor(battery)};border:2px solid ${batteryColor(battery)}">${chargingIcon}</div>`;
+// Create circleMarker with pulse
+function createMarker(lat, lng, name, battery, charging, updated){
+  const m = L.circleMarker([lat, lng], {
+    radius: 10,
+    color: batteryColor(battery),
+    fillColor: batteryColor(battery),
+    fillOpacity: 0.9,
+    weight: 2
+  }).addTo(map);
   
-  const icon = L.divIcon({
-    className:'',
-    html: iconHTML,
-    iconSize:[24,24],
-    iconAnchor:[12,12]
-  });
+  m.bindPopup(`<b>${name}</b><br>Battery: ${battery||'N/A'}% (${charging||'N/A'})<br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
+  m.options.name = name;
 
-  const mk = L.marker([lat,lng],{icon}).addTo(map);
-  mk.bindPopup(`<b>${name}</b><br>Battery: ${battery||'N/A'}% (${charging||'N/A'})<br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
-  mk.options.name = name;
-  return mk;
+  if(m._path) m._path.classList.add('pulse-marker'); // Add pulse animation
+  return m;
 }
 
-function moveMarkerSmooth(marker,lat,lng,updated,battery,charging){
-  if(!marker||!marker.getLatLng) return;
+// Smoothly move marker
+function moveMarkerSmooth(marker, lat, lng, updated, battery, charging){
+  if(!marker || !marker._latlng) return;
   const frames = 20;
-  const startLat = marker.getLatLng().lat;
-  const startLng = marker.getLatLng().lng;
-  const dLat = (lat-startLat)/frames;
-  const dLng = (lng-startLng)/frames;
+  const startLat = marker._latlng.lat;
+  const startLng = marker._latlng.lng;
+  const dLat = (lat - startLat)/frames;
+  const dLng = (lng - startLng)/frames;
   let i=0;
 
   function step(){
     if(i<frames){
-      marker.setLatLng([startLat+dLat*i, startLng+dLng*i]);
+      marker.setLatLng([startLat + dLat*i, startLng + dLng*i]);
       i++;
       requestAnimationFrame(step);
-    }else{
-      marker.setLatLng([lat,lng]);
-      // Update popup and icon with battery + charging
-      const chargingIcon = charging==='Charging'?'⚡':'';
-      marker.setIcon(L.divIcon({className:'',html:`<div class="pulse-div" style="background:${batteryColor(battery)};border:2px solid ${batteryColor(battery)}">${chargingIcon}</div>`,iconSize:[24,24],iconAnchor:[12,12]}));
+    } else {
+      marker.setLatLng([lat, lng]);
+      marker.setStyle({ fillColor: batteryColor(battery), color: batteryColor(battery) });
       marker.setPopupContent(`<b>${marker.options.name}</b><br>Battery: ${battery||'N/A'}% (${charging||'N/A'})<br>Last updated: ${new Date(updated).toLocaleTimeString()}`);
     }
   }
   step();
 }
 
+// Listen to Firestore
 const devicesRef = collection(db,"devices");
 onSnapshot(devicesRef, snapshot=>{
   snapshot.docChanges().forEach(change=>{
@@ -99,11 +100,11 @@ onSnapshot(devicesRef, snapshot=>{
 
     if(change.type==='added'){
       markers[id] = createMarker(data.latitude,data.longitude,data.name,data.battery,data.charging,data.updated);
-    }else if(change.type==='modified'){
-      if(markers[id]) moveMarkerSmooth(markers[id],data.latitude,data.longitude,data.updated,data.battery,data.charging);
-      else markers[id] = createMarker(data.latitude,data.longitude,data.name,data.battery,data.charging,data.updated);
-    }else if(change.type==='removed'){
-      if(markers[id]){ map.removeLayer(markers[id]); delete markers[id]; }
+    } else if(change.type==='modified'){
+      if(markers[id]) moveMarkerSmooth(markers[id], data.latitude, data.longitude, data.updated, data.battery, data.charging);
+      else markers[id] = createMarker(data.latitude, data.longitude, data.name, data.battery, data.charging, data.updated);
+    } else if(change.type==='removed'){
+      if(markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
     }
   });
 
@@ -114,7 +115,8 @@ onSnapshot(devicesRef, snapshot=>{
   }
 });
 
-document.getElementById('generateBind').addEventListener('click',()=>{
+// Generate bind link
+document.getElementById('generateBind').addEventListener('click', ()=>{
   let url = window.location.href;
   if(url.endsWith('index.html')) url = url.replace(/index\.html$/,'bind.html');
   else if(url.endsWith('/')) url += 'bind.html';
@@ -122,7 +124,7 @@ document.getElementById('generateBind').addEventListener('click',()=>{
   const input = document.getElementById('bindLink');
   input.value = url;
   input.select();
-  try { document.execCommand('copy'); }catch(e){}
+  try{ document.execCommand('copy'); }catch(e){}
   alert('Bind link copied: ' + url);
 });
 </script>
